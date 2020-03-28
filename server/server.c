@@ -19,7 +19,7 @@ void chstr(char *str) {
 
 void *work(void *arg) {
     int *fd = (int *)arg;
-    if (send(*fd, "You are here.", sizeof("You are here."), 0) < 0) {
+    if (send(*fd, "You are here.\n", sizeof("You are here.\n"), 0) < 0) {
         perror("send");
         close(*fd);
     }
@@ -38,11 +38,12 @@ void *work(void *arg) {
         printf("Success in ECHO!\n");
     }
     close(*fd);
+    free(fd);
     return NULL;
 }
 
 int main(int argc, char **argv) {
-    int port, server_listen, fd;
+    int port, server_listen;
 
     if (argc != 2) {
         fprintf(stderr, "Usage: %s [port]\n", argv[0]);
@@ -56,12 +57,14 @@ int main(int argc, char **argv) {
     }
 
     pthread_t tid;
+
     while (1) {
-        if ((fd = accept(server_listen, NULL, NULL)) < 0) {
+        int *fd = (int *)malloc(sizeof(int));
+        if ((*fd = accept(server_listen, NULL, NULL)) < 0) {
             perror("accept");
         }
         printf("New client login.\n");
-        pthread_create(&tid, NULL, work, (void *)&fd);
+        pthread_create(&tid, NULL, work, (void *)fd);
     }
 
     return 0;
