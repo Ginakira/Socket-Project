@@ -87,6 +87,7 @@ int main(int argc, char **argv) {
         printf("New client login.\n");
         if ((sub = find_sub()) < 0) {
             fprintf(stderr, "Full\n");
+            send(fd, "Max FULL!\n", sizeof("Max FULL!\n"), 0);
             close(fd);
             continue;
         }
