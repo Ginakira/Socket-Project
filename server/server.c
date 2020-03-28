@@ -26,10 +26,16 @@ void *work(void *arg) {
     while (1) {
         char msg[512] = {0};
         if (recv(fd, msg, sizeof(msg), 0) <= 0) {
+            perror("recv");
             break;
         }
+        printf("recv: %s\n", msg);
         chstr(msg);
-        send(fd, msg, strlen(msg), 0);
+        if (send(fd, msg, strlen(msg), 0) < 0) {
+            perror("send");
+            break;
+        }
+        printf("Success in ECHO!\n");
     }
     close(fd);
     return NULL;
