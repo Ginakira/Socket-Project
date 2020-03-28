@@ -8,6 +8,24 @@
 
 #include "../common/head.h"
 #include "../common/tcp_server.h"
+#define MAXCLIENT 512
+
+struct Client {
+    int flag;
+    int fd;
+    pthread_t tid;
+};
+
+struct Client *client;
+
+int find_sub() {
+    for (int i = 0; i < MAXCLIENT; ++i) {
+        if (client[i].flag == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
 
 void chstr(char *str) {
     for (int i = 0; i < strlen(str); ++i) {
@@ -18,27 +36,30 @@ void chstr(char *str) {
 }
 
 void *work(void *arg) {
-    int *fd = (int *)arg;
-    if (send(*fd, "You are here.\n", sizeof("You are here.\n"), 0) < 0) {
+    int *sub = (int *)arg;
+    int fd = client[*sub].fd;
+    if (send(fd, "You are here.\n", sizeof("You are here.\n"), 0) < 0) {
         perror("send");
-        close(*fd);
+        close(fd);
+        client[*sub].flag = 0;
+        return NULL;
     }
     while (1) {
         char msg[512] = {0};
-        if (recv(*fd, msg, sizeof(msg), 0) <= 0) {
+        if (recv(fd, msg, sizeof(msg), 0) <= 0) {
             perror("recv");
             break;
         }
         printf("recv: %s\n", msg);
         chstr(msg);
-        if (send(*fd, msg, strlen(msg), 0) < 0) {
+        if (send(fd, msg, strlen(msg), 0) < 0) {
             perror("send");
             break;
         }
         printf("Success in ECHO!\n");
     }
-    close(*fd);
-    free(fd);
+    close(fd);
+    client[*sub].flag = 0;
     return NULL;
 }
 
@@ -58,13 +79,22 @@ int main(int argc, char **argv) {
 
     pthread_t tid;
 
+    client = (struct Client *)malloc(sizeof(client) * MAXCLIENT);
+
     while (1) {
-        int *fd = (int *)malloc(sizeof(int));
-        if ((*fd = accept(server_listen, NULL, NULL)) < 0) {
+        int sub, fd;
+        if ((fd = accept(server_listen, NULL, NULL)) < 0) {
             perror("accept");
         }
         printf("New client login.\n");
-        pthread_create(&tid, NULL, work, (void *)fd);
+        if ((sub = find_sub()) < 0) {
+            fprintf(stderr, "Full\n");
+            close(fd);
+            continue;
+        }
+        client[sub].flag = 1;
+        client[sub].fd = fd;
+        pthread_create(&client[sub].tid, NULL, work, (void *)&sub);
     }
 
     return 0;
