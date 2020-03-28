@@ -18,26 +18,26 @@ void chstr(char *str) {
 }
 
 void *work(void *arg) {
-    int fd = *(int *)arg;
-    if (send(fd, "You are here.", sizeof("You are here."), 0) < 0) {
+    int *fd = (int *)arg;
+    if (send(*fd, "You are here.", sizeof("You are here."), 0) < 0) {
         perror("send");
-        close(fd);
+        close(*fd);
     }
     while (1) {
         char msg[512] = {0};
-        if (recv(fd, msg, sizeof(msg), 0) <= 0) {
+        if (recv(*fd, msg, sizeof(msg), 0) <= 0) {
             perror("recv");
             break;
         }
         printf("recv: %s\n", msg);
         chstr(msg);
-        if (send(fd, msg, strlen(msg), 0) < 0) {
+        if (send(*fd, msg, strlen(msg), 0) < 0) {
             perror("send");
             break;
         }
         printf("Success in ECHO!\n");
     }
-    close(fd);
+    close(*fd);
     return NULL;
 }
 
