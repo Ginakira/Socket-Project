@@ -77,8 +77,6 @@ int main(int argc, char **argv) {
         return 2;
     }
 
-    pthread_t tid;
-
     client = (struct Client *)malloc(sizeof(client) * MAXCLIENT);
 
     while (1) {
