@@ -12,9 +12,16 @@
 #include "../common/tcp_client.h"
 
 char *conf = "./client.conf";
+int sockfd;
+
+void logout(int signalnum) {
+    close(sockfd);
+    exit(1);
+    printf("recv a signal\n");
+}
 
 int main() {
-    int port, sockfd;
+    int port;
     char ip[20] = {0};
     struct Msg msg;
 
@@ -54,6 +61,7 @@ int main() {
     }
 
     if (pid == 0) {
+        signal(SIGINT, logout);
         system("clear");
         while (1) {
             printf(L_PINK "Please input message:" NONE "\n");
