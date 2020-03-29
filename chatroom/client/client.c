@@ -7,9 +7,9 @@
 ************************************************************/
 
 #include "../common/chatroom.h"
+#include "../common/color.h"
 #include "../common/common.h"
 #include "../common/tcp_client.h"
-#include "../common/color.h"
 
 char *conf = "./client.conf";
 
@@ -46,6 +46,23 @@ int main() {
     if (rmsg.msg.flag == 3) {
         close(sockfd);
         return 1;
+    }
+
+    pid_t pid;
+    if ((pid = fork()) < 0) {
+        perror("fork");
+    }
+
+    if (pid == 0) {
+        system("clear");
+        while (1) {
+            printf(L_PINK "Please input message:" NONE "\n");
+            scanf("%[^\n]s", msg.message);
+            getchar();
+            chat_send(msg, sockfd);
+            memset(msg.message, 0, sizeof(msg.message));
+            system("clear");
+        }
     }
 
     return 0;
