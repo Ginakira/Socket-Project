@@ -19,12 +19,19 @@ void make_block_ioctl(int fd) {
 }
 
 void make_nonblock(int fd) {
-    int file_flag = fcntl(fd, F_GETFL) | O_NONBLOCK;
-    fcntl(fd, F_SETFL, file_flag);
+    int flag;
+    if (( flag = fcntl(fd, F_GETFL)) < 0) {
+        return;
+    }
+    flag |= O_NONBLOCK;
+    fcntl(fd, F_SETFL, flag);
 }
 
 void make_block(int fd) {
-    int file_flag = fcntl(fd, F_GETFL) & (~O_NONBLOCK);
-    // int file_flag = fcntl(fd, F_GETFL) ^ O_NONBLOCK;
-    fcntl(fd, F_SETFL, file_flag);
+    int flag;
+    if ((flag = fcntl(fd, F_GETFL)) < 0) {
+        return;
+    }
+    flag &= ~O_NONBLOCK;
+    fcntl(fd, F_SETFL, flag);
 }
