@@ -38,7 +38,7 @@ void *client_send(void *arg) {
             strcpy(msg.message, pos + 1);
             strncpy(msg.to, buff + 1, pos - buff - 1);
             msg.to[pos - buff - 1] = 0;
-            printf(YELLOW "PRIVATE : %s\n" NONE, msg.to);
+            printf(YELLOW "PRIVATE : %s" NONE "\n", msg.to);
 
         } else {
             msg.flag = 0;

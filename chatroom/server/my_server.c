@@ -35,7 +35,7 @@ void *msg_forward(void *arg) {
             }
         }
         printf(RED "[PRIVATE FAILED]" NONE " to %s\n", msg.to);
-    } else if (msg.flag == 0) {
+    } else if (msg.flag == 0 || msg.flag == 2) {
         for (int i = 0; i < MAX_CLIENT; ++i) {
             if (client[i].online && strcmp(client[i].name, msg.from)) {
                 chat_send(msg, client[i].fd);
@@ -51,6 +51,12 @@ void *work(void *arg) {
     int client_fd = client[sub].fd;
     struct RecvMsg rmsg;
     printf(GREEN "LOGIN" NONE " : %s\n", client[sub].name);
+    struct Msg login_notice;
+    login_notice.flag = 2;
+    sprintf(login_notice.from, "Server");
+    sprintf(login_notice.message, GREEN "LOGIN" NONE " : %s\n",
+            client[sub].name);
+    msg_forward((void *)&login_notice);
     while (1) {
         rmsg = chat_recv(client_fd);
         if (rmsg.retval < 0) {
