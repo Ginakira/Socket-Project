@@ -56,7 +56,7 @@ void *work(void *arg) {
     struct Msg login_notice;
     login_notice.flag = 2;
     sprintf(login_notice.from, "Server");
-    sprintf(login_notice.message, "User %s is" GREEN " online" NONE "\n",
+    sprintf(login_notice.message, "User %s is" GREEN " online" NONE,
             client[sub].name);
     msg_forward((void *)&login_notice);
 
@@ -72,7 +72,7 @@ void *work(void *arg) {
             logout_notice.flag = 2;
             sprintf(logout_notice.from, "Server");
             sprintf(logout_notice.message,
-                    "User %s has been" RED " offline" NONE "\n",
+                    "User %s has been" RED " offline" NONE,
                     client[sub].name);
             msg_forward((void *)&logout_notice);
 

@@ -13,7 +13,7 @@
 
 struct Msg {
     char from[20];
-    char to[20];
+    // char to[20];
     int flag;  // 0-公聊 1-私聊 2-通知广播或客户端连接信息 3-断开连接的请求
     char message[512];
 };

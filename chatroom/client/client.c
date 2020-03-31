@@ -15,9 +15,9 @@ char *conf = "./client.conf";
 int sockfd;
 
 void logout(int signalnum) {
+    printf("recv a signal\n");
     close(sockfd);
     exit(1);
-    printf("recv a signal\n");
 }
 
 int main() {

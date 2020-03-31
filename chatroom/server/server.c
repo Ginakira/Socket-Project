@@ -21,6 +21,15 @@ struct User {
 char *conf = "./server.conf";
 
 struct User *client;
+int sum = 0;
+
+void send_all(struct Msg msg) {
+    for (int i = 0; i < sum; ++i) {
+        if (client[i].online) {
+            chat_send(msg, client[i].fd);
+        }
+    }
+}
 
 void *work(void *arg) {
     int sub = *(int *)arg;
@@ -33,9 +42,15 @@ void *work(void *arg) {
             printf(PINK "LOGOUT" NONE " : %s \n", client[sub].name);
             close(client_fd);
             client[sub].online = 0;
+            sum--; 
             return NULL;
         }
         printf(BLUE "%s" NONE " : %s\n", rmsg.msg.from, rmsg.msg.message);
+        if (rmsg.msg.flag == 0) {
+            send_all(rmsg.msg);
+        } else {
+            printf("PRIVATE MESSAGE\n");
+        }
     }
     return NULL;
 }
@@ -92,6 +107,7 @@ int main() {
         chat_send(msg, fd);
 
         int sub;
+        sum++;
         sub = find_sub();
         client[sub].online = 1;
         client[sub].fd = fd;
