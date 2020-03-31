@@ -26,14 +26,25 @@ void *client_send(void *arg) {
     signal(SIGINT, logout);
 
     char c = 'a';
+    // printf(L_PINK "%s:" NONE, get_value(conf, "MY_NAME"));
     struct Msg msg = *(struct Msg *)arg;
     while (c != EOF) {
-        // printf(L_PINK "[Send]:" NONE);
-        scanf("%[^\n]s", msg.message);
+        char buff[512] = {0};
+        scanf("%[^\n]s", buff);
         c = getchar();
-        msg.flag = 0;
+        if (buff[0] == '@') {
+            msg.flag = 1;
+            char *pos = strstr(buff, " ");
+            strncpy(msg.to, buff + 1, pos - buff - 1);
+            printf(YELLOW "PRIVATE : %s\n" NONE, msg.to);
+
+        } else {
+            msg.flag = 0;
+            strncpy(msg.to, buff, strlen(buff));
+        }
         chat_send(msg, sockfd);
         memset(msg.message, 0, sizeof(msg.message));
+        memset(msg.to, 0, sizeof(msg.to));
     }
     close(sockfd);
     return NULL;

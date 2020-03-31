@@ -25,6 +25,15 @@ struct User *client;
 // Message Forwarding
 void *msg_forward(void *arg) {
     struct Msg msg = *(struct Msg *)arg;
+    if (msg.flag == 1) {
+        for (int i = 0; i < MAX_CLIENT; ++i) {
+            if (client[i].online && !strcmp(client[i].name, msg.to)) {
+                chat_send(msg, client[i].fd);
+                printf(GREEN "[FORWARD PRIVATE]" NONE " to %s\n",
+                       client[i].name);
+            }
+        }
+    }
     for (int i = 0; i < MAX_CLIENT; ++i) {
         if (client[i].online && strcmp(client[i].name, msg.from)) {
             chat_send(msg, client[i].fd);
@@ -49,7 +58,7 @@ void *work(void *arg) {
         }
         printf(BLUE "%s" NONE GREEN "[%d]" NONE ": %s\n", rmsg.msg.from,
                rmsg.msg.flag, rmsg.msg.message);
-        if (rmsg.msg.flag == 0) {
+        if (rmsg.msg.flag == 0 || rmsg.msg.flag == 1) {
             pthread_t forward_tid;
             pthread_create(&forward_tid, NULL, msg_forward, (void *)&rmsg.msg);
         }
