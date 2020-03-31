@@ -35,12 +35,14 @@ void *client_send(void *arg) {
         if (buff[0] == '@') {
             msg.flag = 1;
             char *pos = strstr(buff, " ");
+            strcpy(msg.message, pos + 1);
             strncpy(msg.to, buff + 1, pos - buff - 1);
+            msg.to[pos - buff - 1] = 0;
             printf(YELLOW "PRIVATE : %s\n" NONE, msg.to);
 
         } else {
             msg.flag = 0;
-            strncpy(msg.to, buff, strlen(buff));
+            strcpy(msg.message, buff);
         }
         chat_send(msg, sockfd);
         memset(msg.message, 0, sizeof(msg.message));
