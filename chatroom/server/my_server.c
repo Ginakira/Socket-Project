@@ -22,6 +22,18 @@ char *conf = "./server.conf";
 
 struct User *client;
 
+// Message Forwarding
+void *msg_forward(void *arg) {
+    struct Msg msg = *(struct Msg *)arg;
+    for (int i = 0; i < MAX_CLIENT; ++i) {
+        if (client[i].online) {
+            chat_send(msg, client[i].fd);
+            printf(GREEN "[FORWARD]" NONE " to %s\n", client[i].name);
+        }
+    }
+    return NULL;
+}
+
 void *work(void *arg) {
     int sub = *(int *)arg;
     int client_fd = client[sub].fd;
@@ -37,6 +49,10 @@ void *work(void *arg) {
         }
         printf(BLUE "%s" NONE GREEN "[%d]" NONE ": %s\n", rmsg.msg.from,
                rmsg.msg.flag, rmsg.msg.message);
+        if (rmsg.msg.flag == 0) {
+            pthread_t forward_tid;
+            pthread_create(&forward_tid, NULL, msg_forward, (void *)&rmsg.msg);
+        }
     }
     return NULL;
 }

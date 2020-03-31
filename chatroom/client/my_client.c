@@ -67,6 +67,7 @@ int main() {
             printf(L_PINK "Please input message:" NONE "\n");
             scanf("%[^\n]s", msg.message);
             c = getchar();
+            msg.flag = 0;
             chat_send(msg, sockfd);
             memset(msg.message, 0, sizeof(msg.message));
             system("clear");
