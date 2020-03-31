@@ -13,11 +13,40 @@
 
 char *conf = "./client.conf";
 int sockfd;
+pthread_t send_tid, recv_tid;
 
 void logout(int signalnum) {
+    pthread_cancel(recv_tid);
     close(sockfd);
+    printf("\r" RED "[LOGOUT]" NONE " Bye!\n");
     exit(1);
-    printf("recv a signal\n");
+}
+
+void *client_send(void *arg) {
+    signal(SIGINT, logout);
+
+    char c = 'a';
+    struct Msg msg = *(struct Msg *)arg;
+    while (c != EOF) {
+        // printf(L_PINK "[Send]:" NONE);
+        scanf("%[^\n]s", msg.message);
+        c = getchar();
+        msg.flag = 0;
+        chat_send(msg, sockfd);
+        memset(msg.message, 0, sizeof(msg.message));
+    }
+    close(sockfd);
+    return NULL;
+}
+
+void *client_recv(void *arg) {
+    struct RecvMsg rmsg;
+    while (1) {
+        rmsg = chat_recv(sockfd);
+        printf("\r" BLUE "%s" NONE GREEN "[%d]" NONE ": %s\n", rmsg.msg.from,
+               rmsg.msg.flag, rmsg.msg.message);
+    }
+    return NULL;
 }
 
 int main() {
@@ -55,28 +84,17 @@ int main() {
         return 1;
     }
 
-    pid_t pid;
-    if ((pid = fork()) < 0) {
-        perror("fork");
+    if (pthread_create(&send_tid, NULL, client_send, (void *)&msg) != 0) {
+        perror("pthread_create");
     }
 
-    if (pid == 0) {
-        signal(SIGINT, logout);
-        char c = 'a';
-        while (c != EOF) {
-            printf(L_PINK "Please input message:" NONE "\n");
-            scanf("%[^\n]s", msg.message);
-            c = getchar();
-            msg.flag = 0;
-            chat_send(msg, sockfd);
-            memset(msg.message, 0, sizeof(msg.message));
-            system("clear");
-        }
-        close(sockfd);
-    } else {
-        wait(NULL);
-        close(sockfd);
+    if (pthread_create(&recv_tid, NULL, client_recv, NULL) != 0) {
+        perror("pthread_create");
     }
+
+    pthread_join(send_tid, NULL);
+    pthread_cancel(recv_tid);
+    close(sockfd);
 
     return 0;
 }
