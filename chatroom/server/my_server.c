@@ -26,7 +26,7 @@ struct User *client;
 void *msg_forward(void *arg) {
     struct Msg msg = *(struct Msg *)arg;
     for (int i = 0; i < MAX_CLIENT; ++i) {
-        if (client[i].online && client[i].name != msg.from) {
+        if (client[i].online && strcmp(client[i].name, msg.from)) {
             chat_send(msg, client[i].fd);
             printf(GREEN "[FORWARD]" NONE " to %s\n", client[i].name);
         }
