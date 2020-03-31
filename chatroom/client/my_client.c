@@ -43,6 +43,9 @@ void *client_recv(void *arg) {
     struct RecvMsg rmsg;
     while (1) {
         rmsg = chat_recv(sockfd);
+        if (rmsg.retval < 0) {
+            return NULL;
+        }
         printf("\r" BLUE "%s" NONE GREEN "[%d]" NONE ": %s\n", rmsg.msg.from,
                rmsg.msg.flag, rmsg.msg.message);
     }
