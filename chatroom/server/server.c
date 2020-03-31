@@ -31,6 +31,15 @@ void send_all(struct Msg msg) {
     }
 }
 
+int check_name(char *name) {
+    for (int i = 0; i < MAX_CLIENT; ++i) {
+        if (client[i].online && strcmp(client[i].name, name)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 void *work(void *arg) {
     int sub = *(int *)arg;
     int client_fd = client[sub].fd;
@@ -42,14 +51,32 @@ void *work(void *arg) {
             printf(PINK "LOGOUT" NONE " : %s \n", client[sub].name);
             close(client_fd);
             client[sub].online = 0;
-            sum--; 
+            sum--;
             return NULL;
         }
         printf(BLUE "%s" NONE " : %s\n", rmsg.msg.from, rmsg.msg.message);
         if (rmsg.msg.flag == 0) {
             send_all(rmsg.msg);
-        } else {
-            printf("PRIVATE MESSAGE\n");
+        } else if (rmsg.msg.flag == 1) {
+            if (rmsg.msg.message[0] == '@') {
+                char to[20] = {0};
+                int i = 1;
+                for (; i <= 20; ++i) {
+                    if (rmsg.msg.message[i] == ' ') {
+                        break;
+                    }
+                }
+                strncpy(to, rmsg.msg.message + 1, i - 1);
+                int ind;
+                if ((ind = check_name(to)) < 0) {
+                    // Return message that the user is offline;
+                    sprintf(rmsg.msg.message, "%s is offline.\n", to);
+                    rmsg.msg.flag = 2;
+                    chat_send(rmsg.msg, client_fd);
+                    continue;
+                }
+                chat_send(rmsg.msg, client[ind].fd);
+            }
         }
     }
     return NULL;

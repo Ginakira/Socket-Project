@@ -14,9 +14,11 @@
 char *conf = "./client.conf";
 int sockfd;
 
+char logfile[50] = {0};
+
 void logout(int signalnum) {
-    printf("recv a signal\n");
     close(sockfd);
+    printf("You have been offline.\n");
     exit(1);
 }
 
@@ -27,6 +29,7 @@ int main() {
 
     port = atoi(get_value(conf, "SERVER_PORT"));
     strcpy(ip, get_value(conf, "SERVER_IP"));
+    strcpy(logfile, get_value(conf, "LOG_FILE"));
     printf("IP = %s, PORT = %d\n", ip, port);
 
     if ((sockfd = socket_connect(ip, port)) < 0) {
@@ -55,28 +58,50 @@ int main() {
         return 1;
     }
 
+    signal(SIGINT, logout);
     pid_t pid;
     if ((pid = fork()) < 0) {
         perror("fork");
     }
 
     if (pid == 0) {
-        signal(SIGINT, logout);
+        sleep(2);
         system("clear");
         char c = 'a';
         while (c != EOF) {
             printf(L_PINK "Please input message:" NONE "\n");
             scanf("%[^\n]s", msg.message);
             c = getchar();
+            msg.flag = 0;
+            if (msg.message[0] == '@') {
+                msg.flag = 1;
+            }
             chat_send(msg, sockfd);
             memset(msg.message, 0, sizeof(msg.message));
-            system("clear");
         }
         close(sockfd);
     } else {
+        freopen(logfile, "a+", stdout);
+        while (1) {
+            rmsg = chat_recv(sockfd);
+            if (rmsg.retval < 0) {
+                printf("Error in server!\n");
+                break;
+            }
+            if (rmsg.msg.flag == 0) {
+                printf(L_BLUE "%s" NONE ": %s\n", rmsg.msg.from,
+                       rmsg.msg.message);
+            } else if (rmsg.msg.flag == 2) {
+                printf(YELLOW "Notice: " NONE "%s\n", rmsg.msg.message);
+            } else if (rmsg.msg.flag == 1) {
+                printf(L_BLUE "%s*:" NONE "%s\n", msg.from, msg.message);
+            } else {
+                printf("Error!\n");
+            }
+            fflush(stdout);
+        }
         wait(NULL);
         close(sockfd);
     }
-
     return 0;
 }
