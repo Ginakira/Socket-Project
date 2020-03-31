@@ -31,6 +31,7 @@ void *msg_forward(void *arg) {
                 chat_send(msg, client[i].fd);
                 printf(GREEN "[FORWARD PRIVATE]" NONE " to %s\n",
                        client[i].name);
+                return NULL;
             }
         }
     }
