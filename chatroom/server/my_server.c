@@ -35,7 +35,8 @@ void *work(void *arg) {
             client[sub].online = 0;
             return NULL;
         }
-        printf(BLUE "%s" NONE " : %s\n", rmsg.msg.from, rmsg.msg.message);
+        printf(BLUE "%s" NONE GREEN "[%d]" NONE ": %s\n", rmsg.msg.from,
+               rmsg.msg.flag, rmsg.msg.message);
     }
     return NULL;
 }

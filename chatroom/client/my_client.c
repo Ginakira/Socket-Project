@@ -62,7 +62,6 @@ int main() {
 
     if (pid == 0) {
         signal(SIGINT, logout);
-        system("clear");
         char c = 'a';
         while (c != EOF) {
             printf(L_PINK "Please input message:" NONE "\n");
