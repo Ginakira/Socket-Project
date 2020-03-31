@@ -51,18 +51,31 @@ void *work(void *arg) {
     int client_fd = client[sub].fd;
     struct RecvMsg rmsg;
     printf(GREEN "LOGIN" NONE " : %s\n", client[sub].name);
+
+    // When a user logged in, notify all online users
     struct Msg login_notice;
     login_notice.flag = 2;
     sprintf(login_notice.from, "Server");
-    sprintf(login_notice.message, GREEN "LOGIN" NONE " : %s\n",
+    sprintf(login_notice.message, "User %s is" GREEN " online" NONE "\n",
             client[sub].name);
     msg_forward((void *)&login_notice);
+
     while (1) {
         rmsg = chat_recv(client_fd);
         if (rmsg.retval < 0) {
             printf(PINK "LOGOUT" NONE " : %s \n", client[sub].name);
             close(client_fd);
             client[sub].online = 0;
+
+            // When a user logged out, notify all online users
+            struct Msg logout_notice;
+            logout_notice.flag = 2;
+            sprintf(logout_notice.from, "Server");
+            sprintf(logout_notice.message,
+                    "User %s has been" RED " offline" NONE "\n",
+                    client[sub].name);
+            msg_forward((void *)&logout_notice);
+
             return NULL;
         }
         printf(BLUE "%s" NONE GREEN "[%d]" NONE ": %s\n", rmsg.msg.from,
@@ -85,7 +98,7 @@ int find_sub() {
 bool check_online(char *name) {
     for (int i = 0; i < MAX_CLIENT; ++i) {
         if (client[i].online && !strcmp(name, client[i].name)) {
-            printf(YELLOW "[WARNING]" NONE " %s is online.\n", name);
+            printf(YELLOW "[WARNING]" NONE " %s is already online.\n", name);
             return true;
         }
     }

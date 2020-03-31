@@ -35,10 +35,15 @@ void *client_send(void *arg) {
         if (buff[0] == '@') {
             msg.flag = 1;
             char *pos = strstr(buff, " ");
-            strcpy(msg.message, pos + 1);
-            strncpy(msg.to, buff + 1, pos - buff - 1);
-            msg.to[pos - buff - 1] = 0;
-            printf(YELLOW "PRIVATE : %s" NONE "\n", msg.to);
+            if (pos == NULL) {
+                msg.flag = 0;
+                strcpy(msg.message, buff);
+            } else {
+                strcpy(msg.message, pos + 1);
+                strncpy(msg.to, buff + 1, pos - buff - 1);
+                msg.to[pos - buff - 1] = 0;
+                printf(YELLOW "[PRIVATE] : to %s" NONE "\n", msg.to);
+            }
 
         } else {
             msg.flag = 0;
