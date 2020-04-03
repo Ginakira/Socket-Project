@@ -6,9 +6,9 @@
     Created Time: 2020/03/29 18:16:08
 ************************************************************/
 
-#include "../common/chatroom.h"
 #include "../common/color.h"
 #include "../common/common.h"
+#include "../common/my_chatroom.h"
 #include "../common/tcp_client.h"
 
 char *conf = "./client.conf";
@@ -45,6 +45,9 @@ void *client_send(void *arg) {
                 printf(YELLOW "[PRIVATE] : to %s" NONE "\n", msg.to);
             }
 
+        } else if (buff[0] == '#') {
+            msg.flag = 4;
+            strcpy(msg.message, buff);
         } else {
             msg.flag = 0;
             strcpy(msg.message, buff);

@@ -6,9 +6,9 @@
     Created Time: 2020/03/29 16:13:13
 ************************************************************/
 
-#include "../common/chatroom.h"
 #include "../common/color.h"
 #include "../common/common.h"
+#include "../common/my_chatroom.h"
 #include "../common/tcp_server.h"
 
 struct User {
@@ -42,6 +42,16 @@ void *msg_forward(void *arg) {
                 printf(GREEN "[FORWARD]" NONE " to %s\n", client[i].name);
             }
         }
+    } else if (msg.flag == 4) {
+        msg.flag = 2;
+        sprintf(msg.message, "ONLINE LIST");
+        for (int i = 0; i < MAX_CLIENT; ++i) {
+            if (client[i].online && !strcmp(client[i].name, msg.from)) {
+                chat_send(msg, client[i].fd);
+                printf(YELLOW "[LIST REQUEST]" NONE "from %s\n", msg.from);
+                return NULL;
+            }
+        }
     }
     return NULL;
 }
@@ -72,15 +82,14 @@ void *work(void *arg) {
             logout_notice.flag = 2;
             sprintf(logout_notice.from, "Server");
             sprintf(logout_notice.message,
-                    "User %s has been" RED " offline" NONE,
-                    client[sub].name);
+                    "User %s has been" RED " offline" NONE, client[sub].name);
             msg_forward((void *)&logout_notice);
 
             return NULL;
         }
         printf(BLUE "%s" NONE GREEN "[%d]" NONE ": %s\n", rmsg.msg.from,
                rmsg.msg.flag, rmsg.msg.message);
-        if (rmsg.msg.flag == 0 || rmsg.msg.flag == 1) {
+        if (rmsg.msg.flag == 0 || rmsg.msg.flag == 1 || rmsg.msg.flag == 4) {
             pthread_t forward_tid;
             pthread_create(&forward_tid, NULL, msg_forward, (void *)&rmsg.msg);
         }
