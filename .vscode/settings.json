@@ -2,6 +2,7 @@
     "files.associations": {
         "random": "cpp",
         "tcp_server.h": "c",
-        "chatroom.h": "c"
+        "chatroom.h": "c",
+        "head.h": "c"
     }
 }

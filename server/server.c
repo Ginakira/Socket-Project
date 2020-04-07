@@ -3,97 +3,127 @@
     Author: Ginakira
     Mail: ginakira@outlook.com
     Github: https://github.com/Ginakira
-    Created Time: 2020/03/28 14:38:45
+    Created Time: 2020/04/07 18:20:23
 ************************************************************/
 
+#include "../common/color.h"
+#include "../common/common.h"
 #include "../common/head.h"
 #include "../common/tcp_server.h"
-#define MAXCLIENT 512
 
-struct Client {
-    int flag;
-    int fd;
-    pthread_t tid;
-};
+#define MAXTASK 100
+#define MAXTHREAD 20
 
-struct Client *client;
-
-int find_sub() {
-    for (int i = 0; i < MAXCLIENT; ++i) {
-        if (client[i].flag == 0) {
-            return i;
-        }
-    }
-    return -1;
+char ch_char(char c) {
+    if (c >= 'a' && c <= 'z')
+        return c - 32;
+    else
+        return c;
 }
 
-void chstr(char *str) {
-    for (int i = 0; i < strlen(str); ++i) {
-        if (str[i] >= 'a' && str[i] <= 'z') {
-            str[i] -= 32;
-        }
-    }
-}
-
-void *work(void *arg) {
-    int *sub = (int *)arg;
-    int fd = client[*sub].fd;
-    if (send(fd, "You are here.\n", sizeof("You are here.\n"), 0) < 0) {
-        perror("send");
-        close(fd);
-        client[*sub].flag = 0;
-        return NULL;
-    }
+void do_echo(int fd) {
+    char buf[512] = {0}, ch;
+    int ind = 0;
     while (1) {
-        char msg[512] = {0};
-        if (recv(fd, msg, sizeof(msg), 0) <= 0) {
-            perror("recv");
+        if (recv(fd, &ch, 1, 0) <= 0) {
             break;
         }
-        printf("recv: %s\n", msg);
-        chstr(msg);
-        if (send(fd, msg, strlen(msg), 0) < 0) {
-            perror("send");
-            break;
+        if (ind < sizeof(buf)) {
+            buf[ind++] = ch_char(ch);
         }
-        printf("Success in ECHO!\n");
+        if (ch == '\n') {
+            send(fd, buf, ind, 0);
+            ind = 0;
+            continue;
+        }
     }
-    close(fd);
-    client[*sub].flag = 0;
-    return NULL;
 }
 
-int main(int argc, char **argv) {
-    int port, server_listen;
+typedef struct {
+    int sum;  // Amount of tasks
+    int* fd;
+    int head, tail;
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+} TaskQueue;
 
+void TaskQueueInit(TaskQueue* queue, int sum) {
+    queue->sum = sum;
+    queue->fd = (int*)calloc(sum, sizeof(int));
+    queue->head = queue->tail = 0;
+    pthread_mutex_init(&queue->mutex, NULL);
+    pthread_cond_init(&queue->cond, NULL);
+    return;
+}
+
+void TaskQueuePush(TaskQueue* queue, int fd) {
+    pthread_mutex_lock(&queue->mutex);
+    queue->fd[queue->tail] = fd;
+    printf(GREEN "<TaskPush>" NONE " : %d\n", fd);
+    if (++queue->tail == queue->sum) {
+        printf(RED "<QueueEnd>" NONE " : %d\n", fd);
+        queue->tail = 0;
+    }
+    pthread_cond_signal(&queue->cond);
+    pthread_mutex_unlock(&queue->mutex);
+}
+
+int TaskQueuePop(TaskQueue* queue) {
+    pthread_mutex_lock(&queue->mutex);
+    while (queue->tail == queue->head) {
+        pthread_cond_wait(&queue->cond, &queue->mutex);
+    }
+    int fd = queue->fd[queue->head];
+    printf(GREEN "<TaskPop>" NONE " : %d\n", fd);
+    if (++queue->head == queue->sum) {
+        queue->head = 0;
+        printf(RED "<QueueEnd>" NONE " : %d\n", fd);
+    }
+    pthread_mutex_unlock(&queue->mutex);
+    return fd;
+}
+
+void* thread_run(void* arg) {
+    pthread_t tid = pthread_self();
+    pthread_detach(tid);
+
+    TaskQueue* queue = (TaskQueue*)arg;
+
+    while (1) {
+        int fd = TaskQueuePop(queue);
+        do_echo(fd);
+    }
+}
+
+int main(int argc, char** argv) {
     if (argc != 2) {
         fprintf(stderr, "Usage: %s [port]\n", argv[0]);
-        return 1;
+        exit(1);
     }
+
+    int port, server_listen, fd;
     port = atoi(argv[1]);
 
     if ((server_listen = socket_create(port)) < 0) {
         perror("socket_create");
-        return 2;
+        exit(1);
     }
 
-    client = (struct Client *)malloc(sizeof(client) * MAXCLIENT);
+    TaskQueue queue;
+    TaskQueueInit(&queue, MAXTASK);
+
+    pthread_t* tid = (pthread_t*)calloc(MAXTHREAD, sizeof(pthread_t));
+    for (int i = 0; i < MAXTHREAD; ++i) {
+        pthread_create(&tid[i], NULL, thread_run, (void*)&queue);
+    }
 
     while (1) {
-        int sub, fd;
         if ((fd = accept(server_listen, NULL, NULL)) < 0) {
             perror("accept");
+            exit(1);
         }
-        printf("New client login.\n");
-        if ((sub = find_sub()) < 0) {
-            fprintf(stderr, "Full\n");
-            send(fd, "Max FULL!\n", sizeof("Max FULL!\n"), 0);
-            close(fd);
-            continue;
-        }
-        client[sub].flag = 1;
-        client[sub].fd = fd;
-        pthread_create(&client[sub].tid, NULL, work, (void *)&sub);
+        printf(BLUE "<Login>" NONE " : %d\n", fd);
+        TaskQueuePush(&queue, fd);
     }
 
     return 0;
