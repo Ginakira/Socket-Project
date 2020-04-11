@@ -19,5 +19,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <sys/select.h>
 #include <signal.h>
 #endif

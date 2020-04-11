@@ -18,7 +18,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    if ((sockfd = socket_connect(argv[1], atoi(argv[2]))) < 0) {
+    if ((sockfd = socket_connect_timeout(argv[1], atoi(argv[2]), 10)) < 0) {
         perror("socket_connect");
         return 2;
     }
