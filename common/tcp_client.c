@@ -43,6 +43,11 @@ int socket_connect_timeout(char *host, int port, int timeout) {
     }
     printf(YELLOW "Socket created." NONE "\n");
 
+    if (connect(sockfd, (struct sockaddr *)&server, sizeof(server)) < 0) {
+        perror("connect");
+        return -1;
+    }
+
     fd_set rfds;
     struct timeval tv;
     FD_ZERO(&rfds);
@@ -63,10 +68,6 @@ int socket_connect_timeout(char *host, int port, int timeout) {
     }
 
     if (FD_ISSET(sockfd, &rfds)) {
-        if (connect(sockfd, (struct sockaddr *)&server, sizeof(server)) < 0) {
-            perror("connect");
-            return -1;
-        }
         printf(GREEN "Socket connected." NONE "\n");
         return sockfd;
     }
