@@ -1,14 +1,15 @@
 /*************************************************************************
 > File Name: epoll.c
-> Author: 
-> Mail: 
+> Author:
+> Mail:
 > Created Time: Sat 11 Apr 2020 08:26:36 PM CST
 ************************************************************************/
 
 #include <stdio.h>
 #include <sys/epoll.h>
-#include "../common/head.h"
+
 #include "../common/common.h"
+#include "../common/head.h"
 #include "../common/tcp_server.h"
 
 #define MAX_EVENTS 10
@@ -17,7 +18,7 @@
 int main(int argc, char **argv) {
     struct epoll_event ev, events[MAX_EVENTS];
     int listen_sock, conn_sock, nfds, epollfd;
-    char buff[BUFFSIZE];
+    char buff[BUFFSIZE] = {0};
 
     if (argc != 2) exit(1);
     listen_sock = socket_create(atoi(argv[1]));
@@ -61,25 +62,25 @@ int main(int argc, char **argv) {
                 }
             } else {
                 // do_use_fd(events[n].data.fd);
-                if (events[n].events & (EPOLLIN | EPOLLERR)) {
+                if (events[n].events & (EPOLLIN | EPOLLERR | EPOLLHUP)) {
                     memset(buff, 0, sizeof(buff));
                     if (recv(events[n].data.fd, buff, BUFFSIZE, 0) > 0) {
                         printf("recv: %s \n", buff);
                         for (int i = 0; i < strlen(buff); ++i) {
-                            if (buff[i] == 'a' && buff[i] <= 'z') buff[i] -= 32;
+                            if (buff[i] >= 'a' && buff[i] <= 'z') buff[i] -= 32;
                         }
                         send(events[n].data.fd, buff, strlen(buff), 0);
                     } else {
-                        if (epoll_ctl(epollfd, EPOLL_CTL_DEL, events[n].data.fd, NULL) < 0) {
+                        if (epoll_ctl(epollfd, EPOLL_CTL_DEL, events[n].data.fd,
+                                      NULL) < 0) {
                             perror("epoll_ctrl");
                         }
                         close(events[n].data.fd);
-                        printf("Logout");
+                        printf("Logout!\n");
                     }
                 }
             }
         }
     }
-                
-                
+    return 0;
 }
