@@ -6,6 +6,7 @@
     Created Time: 2020/03/22 20:04:47
 ************************************************************/
 
+#include "color.h"
 #include "head.h"
 
 int socket_create(int port) {
@@ -15,7 +16,7 @@ int socket_create(int port) {
         return -1;
     }
 
-    printf("Socket created.\n");
+    printf(BLUE "Socket created." NONE "\n");
     struct sockaddr_in server;
     server.sin_family = AF_INET;
     server.sin_port = htons(port);
@@ -40,7 +41,8 @@ int socket_create(int port) {
         return -1;
     }
 
-    printf("Socket binded.\n");
+    printf(GREEN "Socket binded." NONE "\n");
+    printf(PINK "Server listening..." NONE "\n");
     if (listen(server_listen, 20) < 0) {
         return -1;
     }

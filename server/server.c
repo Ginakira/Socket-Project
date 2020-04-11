@@ -3,7 +3,7 @@
     Author: Ginakira
     Mail: ginakira@outlook.com
     Github: https://github.com/Ginakira
-    Created Time: 2020/04/07 18:20:23
+    Created Time: 2020/04/11 18:12:28
 ************************************************************/
 
 #include "../common/color.h"
@@ -11,8 +11,8 @@
 #include "../common/head.h"
 #include "../common/tcp_server.h"
 
-#define MAXTASK 100
-#define MAXTHREAD 20
+#define POLLSIZE 128
+#define BUFFSIZE 512
 
 char ch_char(char c) {
     if (c >= 'a' && c <= 'z')
@@ -21,109 +21,74 @@ char ch_char(char c) {
         return c;
 }
 
-void do_echo(int fd) {
-    char buf[512] = {0}, ch;
-    int ind = 0;
-    while (1) {
-        if (recv(fd, &ch, 1, 0) <= 0) {
-            break;
-        }
-        if (ind < sizeof(buf)) {
-            buf[ind++] = ch_char(ch);
-        }
-        if (ch == '\n') {
-            send(fd, buf, ind, 0);
-            ind = 0;
-            continue;
-        }
-    }
-}
-
-typedef struct {
-    int sum;  // Amount of tasks
-    int* fd;
-    int head, tail;
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-} TaskQueue;
-
-void TaskQueueInit(TaskQueue* queue, int sum) {
-    queue->sum = sum;
-    queue->fd = (int*)calloc(sum, sizeof(int));
-    queue->head = queue->tail = 0;
-    pthread_mutex_init(&queue->mutex, NULL);
-    pthread_cond_init(&queue->cond, NULL);
-    return;
-}
-
-void TaskQueuePush(TaskQueue* queue, int fd) {
-    pthread_mutex_lock(&queue->mutex);
-    queue->fd[queue->tail] = fd;
-    printf(GREEN "<TaskPush>" NONE " : %d\n", fd);
-    if (++queue->tail == queue->sum) {
-        printf(RED "<QueueEnd>" NONE " : %d\n", fd);
-        queue->tail = 0;
-    }
-    pthread_cond_signal(&queue->cond);
-    pthread_mutex_unlock(&queue->mutex);
-}
-
-int TaskQueuePop(TaskQueue* queue) {
-    pthread_mutex_lock(&queue->mutex);
-    while (queue->tail == queue->head) {
-        pthread_cond_wait(&queue->cond, &queue->mutex);
-    }
-    int fd = queue->fd[queue->head];
-    printf(GREEN "<TaskPop>" NONE " : %d\n", fd);
-    if (++queue->head == queue->sum) {
-        queue->head = 0;
-        printf(RED "<QueueEnd>" NONE " : %d\n", fd);
-    }
-    pthread_mutex_unlock(&queue->mutex);
-    return fd;
-}
-
-void* thread_run(void* arg) {
-    pthread_t tid = pthread_self();
-    pthread_detach(tid);
-
-    TaskQueue* queue = (TaskQueue*)arg;
-
-    while (1) {
-        int fd = TaskQueuePop(queue);
-        do_echo(fd);
-    }
-}
-
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     if (argc != 2) {
         fprintf(stderr, "Usage: %s [port]\n", argv[0]);
         exit(1);
     }
 
-    int port, server_listen, fd;
-    port = atoi(argv[1]);
-
-    if ((server_listen = socket_create(port)) < 0) {
-        perror("socket_create");
+    int server_listen, fd;
+    if ((server_listen = socket_create(atoi(argv[1]))) < 0) {
+        perror("scoket_create");
         exit(1);
     }
 
-    TaskQueue queue;
-    TaskQueueInit(&queue, MAXTASK);
+    struct pollfd event_set[POLLSIZE];
 
-    pthread_t* tid = (pthread_t*)calloc(MAXTHREAD, sizeof(pthread_t));
-    for (int i = 0; i < MAXTHREAD; ++i) {
-        pthread_create(&tid[i], NULL, thread_run, (void*)&queue);
+    for (int i = 0; i < POLLSIZE; ++i) {
+        event_set[i].fd = -1;
     }
 
+    event_set[0].fd = server_listen;
+    event_set[0].events = POLLIN;
+
     while (1) {
-        if ((fd = accept(server_listen, NULL, NULL)) < 0) {
-            perror("accept");
-            exit(1);
+        int retval;
+        if ((retval = poll(event_set, POLLSIZE, -1)) < 0) {
+            perror("poll");
+            return 1;
         }
-        printf(BLUE "<Login>" NONE " : %d\n", fd);
-        TaskQueuePush(&queue, fd);
+
+        if (event_set[0].revents & POLLIN) {
+            if ((fd = accept(server_listen, NULL, NULL)) < 0) {
+                perror("accept");
+                continue;
+            }
+            retval--;
+
+            int i;
+            for (i = 1; i < POLLSIZE; ++i) {
+                if (event_set[i].fd < 0) {
+                    event_set[i].fd = fd;
+                    event_set[i].events = POLLIN;
+                    break;
+                }
+            }
+            if (i == POLLSIZE) {
+                printf(YELLOW "[FULL]" NONE " Too many connections!\n");
+                close(fd);
+            }
+        }
+
+        for (int i = 1; i < POLLSIZE; ++i) {
+            if (event_set[i].fd < 0) continue;
+            if (event_set[i].revents & (POLLIN | POLLHUP | POLLERR)) {
+                retval--;
+                char buff[BUFFSIZE] = {0};
+                if (recv(event_set[i].fd, buff, BUFFSIZE, 0) > 0) {
+                    printf(GREEN "[Recv]" NONE " %s\n", buff);
+                    for (int i = 0; i < strlen(buff); ++i) {
+                        buff[i] = ch_char(buff[i]);
+                    }
+                    send(event_set[i].fd, buff, strlen(buff), 0);
+                } else {
+                    close(event_set[i].fd);
+                    event_set[i].fd = -1;
+                }
+            }
+
+            if (retval <= 0) break;
+        }
     }
 
     return 0;
