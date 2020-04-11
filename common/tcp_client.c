@@ -6,6 +6,7 @@
     Created Time: 2020/03/22 20:21:17
 ************************************************************/
 #include "color.h"
+#include "common.h"
 #include "head.h"
 
 int socket_connect(char *host, int port) {
@@ -30,7 +31,7 @@ int socket_connect(char *host, int port) {
     return sockfd;
 }
 
-int socket_connect_timeout(char *host, int port, int timeout) {
+int socket_connect_timeout(char *host, int port, long timeout) {
     int sockfd;
     struct sockaddr_in server;
     server.sin_family = AF_INET;
@@ -38,40 +39,45 @@ int socket_connect_timeout(char *host, int port, int timeout) {
     server.sin_addr.s_addr = inet_addr(host);
 
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("socket");
-        exit(1);
+        // perror("socket");
+        // exit(1);
+        return -1;
     }
     printf(YELLOW "Socket created." NONE "\n");
 
-    if (connect(sockfd, (struct sockaddr *)&server, sizeof(server)) < 0) {
-        perror("connect");
-        return -1;
-    }
-
-    fd_set rfds;
+    make_nonblock(sockfd);
     struct timeval tv;
-    FD_ZERO(&rfds);
-    FD_SET(sockfd, &rfds);
-    tv.tv_sec = timeout;
-    tv.tv_usec = 0;
+    tv.tv_sec = 0;
+    tv.tv_usec = timeout;
 
-    int retval = select(sockfd + 1, &rfds, NULL, NULL, &tv);
+    fd_set wfds;
+    FD_ZERO(&wfds);
+    FD_SET(sockfd, &wfds);
 
-    if (retval < 0) {
-        perror("select");
-        exit(1);
+    if (connect(sockfd, (struct sockaddr *)&server, sizeof(server)) < 0) {
+        int retval, error = -1;
+        int len = sizeof(int);
+        retval = select(sockfd + 1, NULL, &wfds, NULL, &tv);
+        if (retval < 0) {
+            close(sockfd);
+            return -1;
+        } else if (retval) {
+            if (getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &error,
+                           (socklen_t *)&len) < 0) {
+                close(sockfd);
+                return -1;
+            }
+            if (error) {
+                close(sockfd);
+                return -1;
+            }
+        } else {
+            printf(RED "Connection Timeout!" NONE "\n");
+            close(sockfd);
+            return -1;
+        }
     }
-
-    if (retval == 0) {
-        printf(RED " [ERR] " NONE "Socket connection has timed out!\n");
-        exit(1);
-    }
-
-    if (FD_ISSET(sockfd, &rfds)) {
-        printf(GREEN "Socket connected." NONE "\n");
-        return sockfd;
-    }
-
-    printf(RED " [ERR] " NONE "Socket connection failed!\n");
-    return -1;
+    make_block(sockfd);
+    printf(GREEN "Socket connected." NONE "\n");
+    return sockfd;
 }

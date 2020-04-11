@@ -3,6 +3,8 @@
         "random": "cpp",
         "tcp_server.h": "c",
         "chatroom.h": "c",
-        "head.h": "c"
+        "head.h": "c",
+        "common.h": "c",
+        "tcp_client.h": "c"
     }
 }

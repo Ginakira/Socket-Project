@@ -31,7 +31,8 @@ int socket_create(int port) {
     }
 
     int flag = 1;
-    if (setsockopt(server_listen, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(int)) < 0) {
+    if (setsockopt(server_listen, SOL_SOCKET, SO_REUSEADDR, &flag,
+                   sizeof(int)) < 0) {
         return -1;
     }
 
