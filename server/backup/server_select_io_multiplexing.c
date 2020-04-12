@@ -12,10 +12,31 @@
 #include "../../common/tcp_server.h"
 
 #define MAX_CLIENTS 256
-#define BUFF_SIZE 512
+#define BUFF_SIZE 1024
 
 int sock_fds[MAX_CLIENTS];
 int max_fd_number;
+char msg_buff[MAX_CLIENTS][BUFF_SIZE];
+
+struct Buffer {
+    int fd;
+    char buff[BUFF_SIZE];
+    int flag;
+};
+
+struct Buffer *AllocBuffer() {
+    struct Buffer *buffer = (struct Buffer *)malloc(sizeof(struct Buffer));
+    if (buffer == NULL) return NULL;
+    buffer->fd = -1;
+    buffer->flag = 0;
+    memset(buffer->buff, 0, BUFF_SIZE);
+    return buffer;
+}
+
+void FreeBuffer(struct Buffer *buffer) {
+    free(buffer);
+    return;
+}
 
 char ch_char(char c) {
     if (c >= 'a' && c <= 'z')
@@ -31,6 +52,7 @@ int main(int argc, char **argv) {
     }
 
     int server_listen, fd;
+
     if ((server_listen = socket_create(atoi(argv[1]))) < 0) {
         perror("socket_create");
         exit(1);
@@ -94,7 +116,14 @@ int main(int argc, char **argv) {
                     for (int i = 0; i < strlen(buff); ++i) {
                         buff[i] = ch_char(buff[i]);
                     }
-                    send(sock_fds[i], buff, strlen(buff), 0);
+                    if (buff[0] == 13) {
+                        send(sock_fds[i], msg_buff[sock_fds[i]],
+                             strlen(msg_buff[sock_fds[i]]), 0);
+                        printf(YELLOW "[Send]" NONE " Message sended!\n");
+                        memset(msg_buff[sock_fds[i]], 0, BUFF_SIZE);
+                    } else {
+                        strcat(msg_buff[sock_fds[i]], buff);
+                    }
                 } else {
                     close(sock_fds[i]);
                     sock_fds[i] = -1;
