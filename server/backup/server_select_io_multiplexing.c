@@ -6,10 +6,10 @@
     Created Time: 2020/04/12 14:27:31
 ************************************************************/
 
-#include "../common/color.h"
-#include "../common/common.h"
-#include "../common/head.h"
-#include "../common/tcp_server.h"
+#include "../../common/color.h"
+#include "../../common/common.h"
+#include "../../common/head.h"
+#include "../../common/tcp_server.h"
 
 #define MAX_CLIENTS 256
 #define BUFF_SIZE 512
@@ -40,32 +40,34 @@ int main(int argc, char **argv) {
         sock_fds[i] = -1;
     }
 
-    fd_set event_set;
+    fd_set rfds;
     sock_fds[0] = server_listen;
     max_fd_number = server_listen;
+    make_nonblock(server_listen);
 
     while (1) {
-        FD_ZERO(&event_set);
+        FD_ZERO(&rfds);
+
         for (int i = 0; i < MAX_CLIENTS; ++i) {
-            if (sock_fds[i] < 0) continue;
-            FD_SET(sock_fds[i], &event_set);
+            if (sock_fds[i] <= 0) continue;
+            FD_SET(sock_fds[i], &rfds);
             max_fd_number =
                 sock_fds[i] > max_fd_number ? sock_fds[i] : max_fd_number;
         }
 
         int retval;
-        if ((retval = select(max_fd_number + 1, &event_set, NULL, NULL, NULL)) <
-            0) {
+        if ((retval = select(max_fd_number + 1, &rfds, NULL, NULL, NULL)) < 0) {
             perror("select");
             return 1;
         }
 
-        if (FD_ISSET(sock_fds[0], &event_set)) {
+        if (FD_ISSET(server_listen, &rfds)) {
             if ((fd = accept(server_listen, NULL, NULL)) < 0) {
                 perror("accept");
                 continue;
             }
             retval--;
+            make_nonblock(fd);
 
             int ind;
             for (ind = 1; ind < MAX_CLIENTS; ++ind) {
@@ -84,7 +86,7 @@ int main(int argc, char **argv) {
 
         for (int i = 1; retval && i < MAX_CLIENTS; ++i) {
             if (sock_fds[i] < 0) continue;
-            if (FD_ISSET(sock_fds[i], &event_set)) {
+            if (FD_ISSET(sock_fds[i], &rfds)) {
                 retval--;
                 char buff[BUFF_SIZE] = {0};
                 if (recv(sock_fds[i], buff, BUFF_SIZE, 0) > 0) {

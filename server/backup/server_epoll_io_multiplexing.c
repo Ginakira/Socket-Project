@@ -8,9 +8,9 @@
 #include <stdio.h>
 #include <sys/epoll.h>
 
-#include "../common/common.h"
-#include "../common/head.h"
-#include "../common/tcp_server.h"
+#include "../../common/common.h"
+#include "../../common/head.h"
+#include "../../common/tcp_server.h"
 
 #define MAX_EVENTS 10
 #define BUFFSIZE 512
