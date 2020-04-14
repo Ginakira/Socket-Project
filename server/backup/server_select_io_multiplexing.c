@@ -12,23 +12,28 @@
 #include "../../common/tcp_server.h"
 
 #define MAX_CLIENTS 256
-#define BUFF_SIZE 1024
-
-int sock_fds[MAX_CLIENTS];
-int max_fd_number;
-char msg_buff[MAX_CLIENTS][BUFF_SIZE];
+#define BUFF_SIZE 4096
 
 struct Buffer {
     int fd;
-    char buff[BUFF_SIZE];
     int flag;
+    int send_index;
+    int recv_index;
+    char buff[BUFF_SIZE];
 };
+
+char ch_char(char c) {
+    if (c >= 'a' && c <= 'z')
+        return c - 32;
+    else
+        return c;
+}
 
 struct Buffer *AllocBuffer() {
     struct Buffer *buffer = (struct Buffer *)malloc(sizeof(struct Buffer));
     if (buffer == NULL) return NULL;
     buffer->fd = -1;
-    buffer->flag = 0;
+    buffer->flag = buffer->recv_index = buffer->send_index = 0;
     memset(buffer->buff, 0, BUFF_SIZE);
     return buffer;
 }
@@ -38,11 +43,50 @@ void FreeBuffer(struct Buffer *buffer) {
     return;
 }
 
-char ch_char(char c) {
-    if (c >= 'a' && c <= 'z')
-        return c - 32;
-    else
-        return c;
+int RecvToBuffer(int fd, struct Buffer *buffer) {
+    char buff[BUFF_SIZE] = {0};
+    int recv_num;
+    while (1) {
+        recv_num = recv(fd, buff, sizeof(buff), 0);
+        if (recv_num <= 0) break;
+        for (int i = 0; i < recv_num; ++i) {
+            if (buffer->recv_index < sizeof(buffer->buff)) {
+                buffer->buff[buffer->recv_index++] = ch_char(buff[i]);
+            }
+            if (buffer->recv_index > 1 &&
+                buffer->buff[buffer->recv_index - 1] == '\n' &&
+                buffer->buff[buffer->recv_index - 2] == '\n') {
+                buffer->flag = 1;
+            }
+        }
+        if (recv_num < 0) {
+            if (errno == EAGAIN) return 0;
+            return -1;
+        } else if (recv_num == 0) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+int SendFromBuffer(int fd, struct Buffer *buffer) {
+    int send_num;
+    while (buffer->send_index < buffer->recv_index) {
+        send_num = send(fd, buffer->buff + buffer->send_index,
+                        buffer->recv_index - buffer->send_index, 0);
+        if (send_num < 0) {
+            if (errno == EAGAIN) return 0;
+            buffer->fd = -1;
+            return -1;
+        }
+        buffer->send_index += send_num;
+    }
+    if (buffer->send_index == buffer->recv_index) {
+        buffer->send_index = buffer->recv_index = 0;
+    }
+    buffer->flag = 0;
+    return 0;
 }
 
 int main(int argc, char **argv) {
@@ -51,34 +95,43 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
-    int server_listen, fd;
+    int server_listen, fd, max_fd;
 
     if ((server_listen = socket_create(atoi(argv[1]))) < 0) {
         perror("socket_create");
         exit(1);
     }
 
+    struct Buffer *buffer[MAX_CLIENTS];
+
     for (int i = 0; i < MAX_CLIENTS; ++i) {
-        sock_fds[i] = -1;
+        buffer[i] = AllocBuffer();
     }
 
-    fd_set rfds;
-    sock_fds[0] = server_listen;
-    max_fd_number = server_listen;
     make_nonblock(server_listen);
+
+    fd_set rfds, wfds, efds;
+    max_fd = server_listen;
 
     while (1) {
         FD_ZERO(&rfds);
+        FD_ZERO(&wfds);
+        FD_ZERO(&efds);
+
+        FD_SET(server_listen, &rfds);
 
         for (int i = 0; i < MAX_CLIENTS; ++i) {
-            if (sock_fds[i] <= 0) continue;
-            FD_SET(sock_fds[i], &rfds);
-            max_fd_number =
-                sock_fds[i] > max_fd_number ? sock_fds[i] : max_fd_number;
+            if (buffer[i]->fd == server_listen) continue;
+            if (buffer[i]->fd > 0) {
+                if (max_fd < buffer[i]->fd) max_fd = buffer[i]->fd;
+                FD_SET(buffer[i]->fd, &rfds);
+                if (buffer[i]->flag == 1) {
+                    FD_SET(buffer[i]->fd, &wfds);
+                }
+            }
         }
 
-        int retval;
-        if ((retval = select(max_fd_number + 1, &rfds, NULL, NULL, NULL)) < 0) {
+        if (select(max_fd + 1, &rfds, &wfds, NULL, NULL) < 0) {
             perror("select");
             return 1;
         }
@@ -86,47 +139,34 @@ int main(int argc, char **argv) {
         if (FD_ISSET(server_listen, &rfds)) {
             if ((fd = accept(server_listen, NULL, NULL)) < 0) {
                 perror("accept");
-                continue;
+                return 1;
             }
-            retval--;
-            make_nonblock(fd);
 
-            int ind;
-            for (ind = 1; ind < MAX_CLIENTS; ++ind) {
-                if (sock_fds[ind] < 0) {
-                    sock_fds[ind] = fd;
-                    printf(GREEN "[Login]" NONE " New sock_fd %d logged in\n",
-                           sock_fds[ind]);
-                    break;
-                }
-            }
-            if (ind == MAX_CLIENTS) {
+            if (fd > MAX_CLIENTS) {
                 printf(YELLOW "[FULL]" NONE " Too many connections!\n");
                 close(fd);
+            } else {
+                make_nonblock(fd);
+                if (buffer[fd]->fd == -1) {
+                    buffer[fd]->fd = fd;
+                    printf(GREEN "[Login]" NONE " New sock_fd %d logged in\n",
+                           fd);
+                }
             }
-        }
 
-        for (int i = 1; retval && i < MAX_CLIENTS; ++i) {
-            if (sock_fds[i] < 0) continue;
-            if (FD_ISSET(sock_fds[i], &rfds)) {
-                retval--;
-                char buff[BUFF_SIZE] = {0};
-                if (recv(sock_fds[i], buff, BUFF_SIZE, 0) > 0) {
-                    printf(GREEN "[Recv]" NONE " %s\n", buff);
-                    for (int i = 0; i < strlen(buff); ++i) {
-                        buff[i] = ch_char(buff[i]);
-                    }
-                    if (buff[0] == 13) {
-                        send(sock_fds[i], msg_buff[sock_fds[i]],
-                             strlen(msg_buff[sock_fds[i]]), 0);
-                        printf(YELLOW "[Send]" NONE " Message sended!\n");
-                        memset(msg_buff[sock_fds[i]], 0, BUFF_SIZE);
-                    } else {
-                        strcat(msg_buff[sock_fds[i]], buff);
-                    }
-                } else {
-                    close(sock_fds[i]);
-                    sock_fds[i] = -1;
+            for (int i = 0; i < max_fd; ++i) {
+                int retval = 0;
+                if (i == server_listen) continue;
+                if (FD_ISSET(i, &rfds)) {
+                    retval = RecvToBuffer(i, buffer[i]);
+                }
+                if (retval == 0 && FD_ISSET(i, &wfds)) {
+                    retval = SendFromBuffer(i, buffer[i]);
+                }
+                if (retval) {
+                    buffer[i]->fd = -1;
+                    printf(L_RED "[Logout]" NONE " %d\n", i);
+                    close(i);
                 }
             }
         }
