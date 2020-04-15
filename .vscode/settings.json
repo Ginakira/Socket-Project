@@ -6,6 +6,7 @@
         "head.h": "c",
         "common.h": "c",
         "tcp_client.h": "c",
-        "color.h": "c"
+        "color.h": "c",
+        "ratio": "c"
     }
 }
