@@ -63,6 +63,7 @@ int RecvToBuffer(int fd, struct Buffer *buffer) {
             buffer->flag = 1;
         }
     }
+
     if (recv_num < 0) {
         if (errno == EAGAIN) return 0;
         return -1;
@@ -160,12 +161,12 @@ int main(int argc, char **argv) {
 
         for (int i = 0; i <= max_fd; ++i) {
             int retval = 0;
-            if (i == server_listen) continue;
-            if (FD_ISSET(i, &rfds)) {
+            if (i == server_listen || buffer[i]->fd == -1) continue;
+            if (FD_ISSET(buffer[i]->fd, &rfds)) {
                 printf("Before RecvToBuffer...\n");
                 retval = RecvToBuffer(i, buffer[i]);
             }
-            if (retval == 0 && FD_ISSET(i, &wfds)) {
+            if (retval == 0 && FD_ISSET(buffer[i]->fd, &wfds)) {
                 retval = SendFromBuffer(i, buffer[i]);
             }
             if (retval) {
