@@ -44,27 +44,30 @@ void FreeBuffer(struct Buffer *buffer) {
 }
 
 int RecvToBuffer(int fd, struct Buffer *buffer) {
-    char buff[BUFF_SIZE] = {0};
     int recv_num;
     while (1) {
+        char buff[BUFF_SIZE] = {0};
         recv_num = recv(fd, buff, sizeof(buff), 0);
         if (recv_num <= 0) break;
+        printf("recv: %s\n", buff);
         for (int i = 0; i < recv_num; ++i) {
             if (buffer->recv_index < sizeof(buffer->buff)) {
                 buffer->buff[buffer->recv_index++] = ch_char(buff[i]);
             }
-            if (buffer->recv_index > 1 &&
-                buffer->buff[buffer->recv_index - 1] == '\n' &&
-                buffer->buff[buffer->recv_index - 2] == '\n') {
-                buffer->flag = 1;
-            }
         }
-        if (recv_num < 0) {
-            if (errno == EAGAIN) return 0;
-            return -1;
-        } else if (recv_num == 0) {
-            return 1;
+        if (buffer->recv_index > 2 &&
+            buffer->buff[buffer->recv_index - 1] == 10 &&
+            buffer->buff[buffer->recv_index - 3] == 10 &&
+            buffer->buff[buffer->recv_index - 2] == 13 &&
+            buffer->buff[buffer->recv_index - 4] == 13) {
+            buffer->flag = 1;
         }
+    }
+    if (recv_num < 0) {
+        if (errno == EAGAIN) return 0;
+        return -1;
+    } else if (recv_num == 0) {
+        return 1;
     }
 
     return 0;
@@ -153,21 +156,22 @@ int main(int argc, char **argv) {
                            fd);
                 }
             }
+        }
 
-            for (int i = 0; i < max_fd; ++i) {
-                int retval = 0;
-                if (i == server_listen) continue;
-                if (FD_ISSET(i, &rfds)) {
-                    retval = RecvToBuffer(i, buffer[i]);
-                }
-                if (retval == 0 && FD_ISSET(i, &wfds)) {
-                    retval = SendFromBuffer(i, buffer[i]);
-                }
-                if (retval) {
-                    buffer[i]->fd = -1;
-                    printf(L_RED "[Logout]" NONE " %d\n", i);
-                    close(i);
-                }
+        for (int i = 0; i <= max_fd; ++i) {
+            int retval = 0;
+            if (i == server_listen) continue;
+            if (FD_ISSET(i, &rfds)) {
+                printf("Before RecvToBuffer...\n");
+                retval = RecvToBuffer(i, buffer[i]);
+            }
+            if (retval == 0 && FD_ISSET(i, &wfds)) {
+                retval = SendFromBuffer(i, buffer[i]);
+            }
+            if (retval) {
+                buffer[i]->fd = -1;
+                printf(L_RED "[Logout]" NONE " %d\n", i);
+                close(i);
             }
         }
     }
