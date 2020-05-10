@@ -81,6 +81,9 @@ int main(int argc, char **argv) {
         total++;
         printf("The %dth client!\n", total);
         send(fd, "You are HERE!\n", 14, 0);
+        if (total > MAXSEQ) {
+            // TODO
+        }
 
         pthread_t tid;
         pthread_create(&tid, NULL, work, (void *)&fd);
