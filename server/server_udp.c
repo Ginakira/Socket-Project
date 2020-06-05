@@ -32,8 +32,7 @@ int main(int argc, char **argv) {
                       &addr_len)) > 0) {
             printf("[%s] : %s\n", inet_ntoa(client.sin_addr), buff);
         }
-        sendto(sockfd, buff, strlen(buff), 0, (struct sockaddr *)&client,
-               addr_len);
+        sendto(sockfd, buff, strlen(buff), 0, (struct sockaddr *)&client, addr_len);
     }
     return 0;
 }

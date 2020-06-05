@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
                     addr_len)) > 0) {
             printf("[Sended] : %s\n", buff);
         }
-        recvfrom(sockfd, buff, sizeof(buff), 0, (struct sockaddr *)&client, &addr_len);
+        // recvfrom(sockfd, buff, sizeof(buff), 0, (struct sockaddr *)&client, &addr_len);
         printf("[Received] : %s\n", buff);
     }
     return 0;
