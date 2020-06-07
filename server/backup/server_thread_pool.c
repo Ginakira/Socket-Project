@@ -6,10 +6,10 @@
     Created Time: 2020/04/07 18:20:23
 ************************************************************/
 
-#include "../common/color.h"
-#include "../common/common.h"
-#include "../common/head.h"
-#include "../common/tcp_server.h"
+#include "../../common/color.h"
+#include "../../common/common.h"
+#include "../../common/head.h"
+#include "../../common/tcp_server.h"
 
 #define MAXTASK 100
 #define MAXTHREAD 20
